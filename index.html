@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Quest System V2.0</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --panel-color: #1a1a1a;
+            --primary-neon: #0ff;
+            --secondary-neon: #f0f;
+            --danger-color: #ff2a2a;
+            --success-color: #0f0;
+            --text-color: #e0e0e0;
+            --font-game: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-game);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        /* === HUD Header === */
+        header {
+            border: 2px solid var(--primary-neon);
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px var(--primary-neon);
+            position: relative;
+            background: rgba(0,20,20,0.8);
+        }
+
+        h1 {
+            margin: 0;
+            text-transform: uppercase;
+            font-size: 1.5rem;
+            text-shadow: 0 0 5px var(--primary-neon);
+        }
+
+        .status-bar {
+            margin-top: 10px;
+            background: #333;
+            height: 20px;
+            border: 1px solid var(--text-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hp-bar-fill {
+            background: linear-gradient(90deg, var(--secondary-neon), var(--primary-neon));
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 10px var(--primary-neon);
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .indicator-light {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #333;
+            box-shadow: 0 0 2px #000;
+        }
+        .indicator-light.on { background-color: var(--success-color); box-shadow: 0 0 8px var(--success-color); }
+        .indicator-light.busy { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
+        .indicator-light.error { background-color: var(--danger-color); box-shadow: 0 0 8px var(--danger-color); }
+
+        /* === Input === */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--secondary-neon);
+            color: #fff;
+            padding: 12px;
+            font-family: var(--font-game);
+            font-size: 1rem;
+            outline: none;
+            transition: box-shadow 0.3s;
+        }
+
+        input[type="text"]:focus {
+            box-shadow: 0 0 15px var(--secondary-neon);
+            border-color: #fff;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--primary-neon);
+            color: var(--primary-neon);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: var(--font-game);
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: var(--primary-neon);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary-neon);
+        }
+
+        button:active {
+            transform: translateY(2px);
+        }
+
+        button.danger { border-color: var(--danger-color); color: var(--danger-color); }
+        button.danger:hover { background: var(--danger-color); color: #fff; box-shadow: 0 0 15px var(--danger-color); }
+
+        /* === Quest List === */
+        .quest-list { list-style: none; padding: 0; }
+
+        .quest-item {
+            background: var(--panel-color);
+            border-left: 4px solid #333;
+            margin-bottom: 10px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s ease-out;
+            position: relative;
+        }
+
+        .quest-item:hover { border-left-color: var(--secondary-neon); background: #222; }
+
+        .quest-item.completed {
+            opacity: 0.6;
+            border-left-color: var(--success-color);
+        }
+        
+        .quest-item.completed .quest-text {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .quest-actions { display: flex; gap: 8px; }
+        .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+        /* === Focus Mode Overlay === */
+        .pomodoro-overlay {
+            display: none; /* JS toggles this */
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .pomodoro-overlay.active { display: flex; }
+
+        .timer-display {
+            font-size: 6rem;
+            color: var(--primary-neon);
+            text-shadow: 0 0 30px var(--primary-neon);
+            margin: 20px 0;
+            font-family: monospace;
+        }
+
+        /* === Toast Notification === */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            pointer-events: none;
+        }
+        
+        .toast {
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid var(--primary-neon);
+            color: var(--primary-neon);
+            padding: 10px 20px;
+            margin-top: 10px;
+            box-shadow: 0 0 10px var(--primary-neon);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .toast.show { opacity: 1; transform: translateY(0); }
+
+        /* === System Panel === */
+        .system-panel {
+            margin-top: 40px;
+            border-top: 1px dashed #444;
+            padding-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Daily Quest System <span style="font-size:0.5em; vertical-align: super;">V2.0</span></h1>
+        <div class="status-indicator">
+            <span id="syncText">OFFLINE</span>
+            <div id="syncLight" class="indicator-light"></div>
+        </div>
+        <div class="status-bar">
+            <div class="hp-bar-fill" id="hpBar"></div>
+        </div>
+        <div style="margin-top: 5px; font-size: 0.8rem; display:flex; justify-content:space-between;">
+            <span>EXP: <span id="progressText">0%</span></span>
+            <span>SYSTEM READY</span>
+        </div>
+    </header>
+
+    <div class="input-group">
+        <input type="text" id="newQuestInput" placeholder="輸入新任務指令... (Enter)" onkeypress="handleEnter(event)">
+        <button onclick="addQuest()">Deploy</button>
+    </div>
+
+    <ul class="quest-list" id="questList">
+        </ul>
+
+    <div class="system-panel">
+        <button class="danger" onclick="resetDay()">RESET SYSTEM</button>
+        <button onclick="configureToken()">CONFIG LINK</button>
+        <button onclick="syncToGithub(true)">FORCE SYNC</button>
+    </div>
+</div>
+
+<div class="pomodoro-overlay" id="timerOverlay">
+    <div style="color: #fff; letter-spacing: 2px;">FOCUS MODE ENGAGED</div>
+    <div class="timer-display" id="timerText">25:00</div>
+    <div style="color: #666; font-size: 0.8rem; margin-bottom: 20px;">任務進行中，請保持專注</div>
+    <button class="danger" onclick="stopPomodoro()">ABORT MISSION</button>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+    // === 核心資料與設定 ===
+    let quests = [];
+    let githubConfig = {
+        token: localStorage.getItem('gh_token') || '',
+        repo: localStorage.getItem('gh_repo') || '', // format: user/repo
+        path: 'quests.json',
+        sha: null // 用於 GitHub API 的文件版本控制
+    };
+
+    // === 初始化 ===
+    init();
+
+    async function init() {
+        // 先嘗試載入本地，讓畫面馬上出來
+        const localData = localStorage.getItem('daily_quests');
+        if (localData) {
+            quests = JSON.parse(localData);
+            render();
+        }
+
+        // 如果有設定 Token，嘗試從雲端拉取最新資料
+        if (githubConfig.token && githubConfig.repo) {
+            await loadFromGithub();
+        }
+    }
+
+    // === 互動邏輯 ===
+
+    function handleEnter(e) {
+        if(e.key === 'Enter') addQuest();
+    }
+
+    function addQuest() {
+        const input = document.getElementById('newQuestInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        const newQuest = {
+            id: Date.now(),
+            text: text,
+            completed: false,
+            pomoCount: 0
+        };
+
+        quests.push(newQuest);
+        input.value = '';
+        saveAndRender();
+        showToast("任務已部署");
+    }
+
+    function toggleComplete(id) {
+        const quest = quests.find(q => q.id === id);
+        if (quest) {
+            quest.completed = !quest.completed;
+            saveAndRender();
+        }
+    }
+
+    function deleteQuest(id) {
+        quests = quests.filter(q => q.id !== id);
+        saveAndRender();
+    }
+
+    function resetDay() {
+        if(confirm('警告：確定要執行系統重置？資料將被清除。')) {
+            quests = []; 
+            saveAndRender();
+            showToast("系統已重置");
+        }
+    }
+
+    // === 番茄鐘邏輯 (修復版) ===
+    let timerInterval;
+    let currentQuestId = null;
+
+    function startPomodoro(id) {
+        currentQuestId = id;
+        const overlay = document.getElementById('timerOverlay');
+        overlay.classList.add('active');
+        
+        let timeLeft = 25 * 60;
+        updateTimerDisplay(timeLeft);
+
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay(timeLeft);
+            if (timeLeft <= 0) {
+                finishPomodoro(); // 時間到
+            }
+        }, 1000);
+    }
+
+    function stopPomodoro() {
+        clearInterval(timerInterval);
+        document.getElementById('timerOverlay').classList.remove('active');
+    }
+
+    function finishPomodoro() {
+        stopPomodoro(); // 1. 先關閉計時器
+        
+        // 2. 更新資料
+        const quest = quests.find(q => q.id === currentQuestId);
+        if(quest) {
+            quest.pomoCount = (quest.pomoCount || 0) + 1;
+        }
+        saveAndRender();
+
+        // 3. UX 優化：不使用 alert，改用 Toast
+        showToast("專注完成！經驗值獲得 +1 ★");
+
+        // 4. 強制將焦點還給輸入框，解決無法打字的問題
+        setTimeout(() => {
+            document.getElementById('newQuestInput').focus();
+        }, 100);
+    }
+
+    function updateTimerDisplay(seconds) {
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        document.getElementById('timerText').innerText = `${m}:${s}`;
+    }
+
+    // === 渲染與儲存 ===
+    function render() {
+        const list = document.getElementById('questList');
+        list.innerHTML = '';
+
+        const total = quests.length;
+        const completed = quests.filter(q => q.completed).length;
+        const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+        document.getElementById('hpBar').style.width = `${percent}%`;
+        document.getElementById('progressText').innerText = `${percent}%`;
+
+        quests.forEach(q => {
+            const li = document.createElement('li');
+            li.className = `quest-item ${q.completed ? 'completed' : ''}`;
+            const stars = '<span style="color:#f0f; margin-left:5px;">★</span>'.repeat(q.pomoCount || 0);
+
+            li.innerHTML = `
+                <div style="flex:1">
+                    <span class="quest-text">${q.text}</span> ${stars}
+                </div>
+                <div class="quest-actions">
+                    ${!q.completed ? `<button class="btn-sm" onclick="startPomodoro(${q.id})">FOCUS</button>` : ''}
+                    <button class="btn-sm" onclick="toggleComplete(${q.id})">${q.completed ? 'UNDO' : 'DONE'}</button>
+                    <button class="btn-sm danger" onclick="deleteQuest(${q.id})">X</button>
+                </div>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('daily_quests', JSON.stringify(quests));
+        render();
+        // 觸發雲端同步 (Debounce 簡單處理：如果你打字很快，不會每次都傳，這裡直接傳)
+        syncToGithub(); 
+    }
+
+    // === 真正的 GitHub API 同步 (核心區) ===
+    
+    // 中文編碼輔助函式 (解決 Base64 中文亂碼問題)
+    function utf8_to_b64(str) {
+        return window.btoa(unescape(encodeURIComponent(str)));
+    }
+    function b64_to_utf8(str) {
+        return decodeURIComponent(escape(window.atob(str)));
+    }
+
+    function setSyncStatus(status) {
+        const text = document.getElementById('syncText');
+        const light = document.getElementById('syncLight');
+        light.className = 'indicator-light'; // reset
+        
+        switch(status) {
+            case 'syncing':
+                text.innerText = 'SYNCING...';
+                light.classList.add('busy');
+                break;
+            case 'online':
+                text.innerText = 'ONLINE';
+                light.classList.add('on');
+                break;
+            case 'error':
+                text.innerText = 'ERROR';
+                light.classList.add('error');
+                break;
+            default:
+                text.innerText = 'OFFLINE';
+        }
+    }
+
+    function configureToken() {
+        const token = prompt("GitHub Token (Repo Scope):", githubConfig.token);
+        const repo = prompt("Repo Name (username/repo):", githubConfig.repo);
+        
+        if (token && repo) {
+            localStorage.setItem('gh_token', token);
+            localStorage.setItem('gh_repo', repo);
+            githubConfig.token = token;
+            githubConfig.repo = repo;
+            loadFromGithub(); // 設定完馬上嘗試拉取
+        }
+    }
+
+    async function loadFromGithub() {
+        if (!githubConfig.token || !githubConfig.repo) return;
+        setSyncStatus('syncing');
+
+        const url = `https://api.github.com/repos/${githubConfig.repo}/contents/${githubConfig.path}`;
+        try {
+            const res = await fetch(url, {
+                headers: {
+                    'Authorization': `token ${githubConfig.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                githubConfig.sha = data.sha; // 記住 SHA 以便下次覆蓋
+                const content = b64_to_utf8(data.content); // 解碼
+                quests = JSON.parse(content);
+                localStorage.setItem('daily_quests', JSON.stringify(quests)); // 更新本地
+                render();
+                setSyncStatus('online');
+                showToast("雲端資料同步完成");
+            } else if (res.status === 404) {
+                // 檔案不存在，這可能是第一次使用，準備上傳
+                console.log("Remote file not found, will create on first save.");
+                setSyncStatus('online');
+            } else {
+                throw new Error('Fetch failed');
+            }
+        } catch (e) {
+            console.error(e);
+            setSyncStatus('error');
+            showToast("雲端連線失敗");
+        }
+    }
+
+    async function syncToGithub(force = false) {
+        if (!githubConfig.token || !githubConfig.repo) return;
+        setSyncStatus('syncing');
+
+        const url = `https://api.github.com/repos/${githubConfig.repo}/contents/${githubConfig.path}`;
+        const contentBase64 = utf8_to_b64(JSON.stringify(quests, null, 2));
+
+        const body = {
+            message: `Update quests: ${new Date().toLocaleString()}`,
+            content: contentBase64
+        };
+
+        // 如果我們知道檔案的 SHA (表示是更新而非新建)，必須帶上 SHA
+        if (githubConfig.sha) {
+            body.sha = githubConfig.sha;
+        } else {
+            // 如果不知道 SHA，為了安全，先 GET 一次 (避免覆蓋衝突)
+            try {
+                const getRes = await fetch(url, {
+                    headers: { 'Authorization': `token ${githubConfig.token}` }
+                });
+                if (getRes.ok) {
+                    const data = await getRes.json();
+                    body.sha = data.sha;
+                }
+            } catch(e) {}
+        }
+
+        try {
+            const res = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${githubConfig.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                githubConfig.sha = data.content.sha; // 更新本地 SHA
+                setSyncStatus('online');
+                if(force) showToast("強制上傳成功");
+            } else {
+                const err = await res.json();
+                console.error("Sync error:", err);
+                setSyncStatus('error');
+            }
+        } catch (e) {
+            console.error(e);
+            setSyncStatus('error');
+        }
+    }
+
+    // === Toast Notification System ===
+    function showToast(msg) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerText = msg;
+        container.appendChild(toast);
+
+        // 動畫流程
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        });
+    }
+
+</script>
+
+</body>
+</html>
