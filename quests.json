@@ -1,11 +1,5 @@
 [
   {
-    "id": 1769778378227,
-    "text": "開始修改投稿的東西",
-    "completed": false,
-    "pomoCount": 0
-  },
-  {
     "id": 1770809969054,
     "text": "了解一些車禍的法律常識",
     "completed": false,
@@ -24,20 +18,26 @@
     "pomoCount": 0
   },
   {
-    "id": 1772689184908,
-    "text": "清算帳目",
+    "id": 1773700073394,
+    "text": "清算帳目(爸爸)",
     "completed": false,
     "pomoCount": 0
   },
   {
-    "id": 1772903480031,
-    "text": "準備好履歷（簡歷）",
+    "id": 1773700087549,
+    "text": "清算帳目(昨天的飲料+早午餐費用)",
     "completed": false,
     "pomoCount": 0
   },
   {
-    "id": 1772903496922,
-    "text": "上網找你希望的職缺",
+    "id": 1773700233140,
+    "text": "制定 NC 論文一版計畫",
+    "completed": false,
+    "pomoCount": 0
+  },
+  {
+    "id": 1773700242086,
+    "text": "整理 Server data (完成交接)",
     "completed": false,
     "pomoCount": 0
   }
